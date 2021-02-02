@@ -1,5 +1,3 @@
-## CIS3319
-
 # Wireless Network and Security 
 # CIS3319 - Section 01
 
