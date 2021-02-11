@@ -19,9 +19,15 @@ client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 #connect client to the ip and port
 client.connect(ADDRESS)
 
-def pad(text):
+""" def pad(text):
     n = len(text) % 8
-    return text + (b' ' * n)
+    return text + (b' ' * n) """
+
+#check if the msg is 8 bytes long if not them add empty spaces to make it 8
+def pad(text):
+    if len(text) % 8 != 0:
+        toAdd = 8 - len(text) % 8
+    return text + (b' ' * toAdd)
 
 # Function that removes the shared DES Key from the file, and returns it as a string
 def getDESKeyFromFile(filename):
@@ -55,14 +61,23 @@ def send(msg):
 
 
 key = bytes(getDESKeyFromFile('key.txt'), 'utf-8')
-text1 = bytes(input(), 'utf-8')
+userInput = input()
+text1 = bytes(userInput, 'utf-8')
 
 des = DES.new(key, DES.MODE_ECB)
 
 padded_text = pad(text1)
 encrypted_text = des.encrypt(padded_text)
 
+print("\n")
+
+print(f"[ENCRYPTING MESSAGE] {userInput}")
+print(f"[ENCRYPTED MESSAGE] {encrypted_text}")
+
+print("MESSAGE SENT\n")
+
 send(encrypted_text)
+
 #print(des.decrypt(encrypted_text))
 
 #send a message to disconnect the client
