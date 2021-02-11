@@ -25,9 +25,15 @@ def shareKey():
 shareKey()
 
 
-def pad(text):
+""" def pad(text):
     n = len(text) % 8
-    return text + (b' ' * n)
+    return text + (b' ' * n) """
+
+#check if the msg is 8 bytes long if not them add empty spaces to make it 8
+def pad(text):
+    if len(text) % 8 != 0:
+        toAdd = 8 - len(text) % 8
+    return text + (b' ' * toAdd)
 
 #server will be equal to a socket stream
 server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -37,6 +43,7 @@ server.bind(ADDRESS)
 #After receiving the client's info this func makes sure the client is connected, meassure the msg length in contrast to the header size and encodes or decodes the msg using utf-8
 def handle_client(conn, addr):
     print(f"[NEW CONNECTION] {addr} connected.")
+    print("\n")
 
     connected = True
     while connected:
@@ -55,7 +62,7 @@ def handle_client(conn, addr):
             des = DES.new(key, DES.MODE_ECB)
 
             print(f"[UNENCRYPTED MESSAGE FROM CLIENT] {des.decrypt(msg)}")
-            
+            print("\n")
 
             if connected == False:
                 text1 = bytes('Connection Closed!', 'utf-8')
@@ -66,7 +73,11 @@ def handle_client(conn, addr):
                 text1 = bytes('Hello Client', 'utf-8')
                 padded_text = pad(text1)
                 encrypted_text = des.encrypt(padded_text)
+                print(f"[ENCRYPTING MESSAGE] {'Hello Client'}")
+                print(f"[ENCRYPTED MESSAGE] {encrypted_text}")
+
                 conn.send(encrypted_text)
+                print("MESSAGE SENT\n")
     #close the connection
     conn.close()
 
