@@ -1,6 +1,10 @@
+from types import resolve_bases
 from Crypto.Cipher import DES
+from Crypto.Hash.MD5 import MD5Hash
 import socket
 import random
+import hashlib
+import hmac
 
 #header is the maximum bit number for the message
 HEADER = 64
@@ -15,12 +19,17 @@ FORMAT = 'utf-8'
 DISCONNECT_MESSAGE = "!DISCONNECTED"
 #key used to encript messages
 DES_key = str(random.randint(10000000,99999999))
+HMAC_key = str(random.randint(10000000,99999999))
 
-#create a new file with the shared key for the client
+#create a new file with the shared keys for the client
 def shareKey():
     f = open('key.txt', 'w')
     f.write(DES_key)
-    f.close()  
+    f.close()
+
+    f2 = open('hmackey.txt', 'w')
+    f2.write(HMAC_key)
+    f2.close()  
 
 shareKey()
 
@@ -54,14 +63,43 @@ def handle_client(conn, addr):
             if msg == DISCONNECT_MESSAGE:
                 connected = False
 
-            print(f"[ENCRYPTED MESSAGE FROM CLIENT] {msg}")
-
             key = bytes(DES_key, 'utf-8')
-            #text1 = bytes('HELLO SERVER', 'utf-8')
 
             des = DES.new(key, DES.MODE_ECB)
+            string = des.decrypt(msg)
 
-            print(f"[UNENCRYPTED MESSAGE FROM CLIENT] {des.decrypt(msg)}")
+            
+
+            #split the ciphertext to only get the hmac key and the encoded text, then decode it
+            n = 32
+            out = [(string[i:i+n]) for i in range(0, len(string), n)] 
+            hexFromClient = out[1].decode()
+            hmacFromClient = out[0].decode()
+            finalmsg = bytes.fromhex(hexFromClient).decode('utf-8')
+
+            #print all the info received from client
+            print("******** NEW MESSAGE FROM CLIENT ******** ")
+            print("\n")
+
+            print(f"[MESSAGE] {finalmsg}")
+            print(f"[MESSAGE HMAC] {hexFromClient}")
+            print(f"[CIPHERTEXT] {des.decrypt(msg).decode()}")
+            print(f"[ENCRYPTED DES FROM CLIENT] {msg}")
+
+            #compare hmac for validation then print both for the user to see
+            hmackey = bytes(HMAC_key, 'utf-8')
+            hmacFromServer = hmac.new(hmackey,digestmod=MD5Hash).hexdigest()
+
+            if(hmacFromClient == hmacFromServer):
+                print(f"[HMAC FROM CLIENT] {hmacFromClient}")
+                print(f"[HMAC GENERATED] {hmacFromServer}")
+                print('HMAC HAS BEEN VERIFIED!')
+            else:
+                print(f"[HMAC FROM CLIENT] {hmacFromClient}")
+                print(f"[HMAC GENERATED] {hmacFromServer}")
+                print('HMAC DO NOT MATCH!')
+                
+
             print("\n")
 
             if connected == False:
@@ -71,10 +109,19 @@ def handle_client(conn, addr):
                 conn.send(encrypted_text)
             else:
                 text1 = bytes('Hello Client', 'utf-8')
-                padded_text = pad(text1)
-                encrypted_text = des.encrypt(padded_text)
-                print(f"[ENCRYPTING MESSAGE] {'Hello Client'}")
-                print(f"[ENCRYPTED MESSAGE] {encrypted_text}")
+                sign_signature = text1.hex()
+                hashmac = hmac.new(hmackey,digestmod=MD5Hash).hexdigest()
+                finalmsg = hashmac + '' + sign_signature
+                encrypted_text = des.encrypt(finalmsg)
+                print(f"[MESSAGE] {text1.decode()}")
+                print(f"[MESSAGE HMAC] {sign_signature}")
+                print(f"[HMAC KEY] {hashmac}")
+                print(f"[CIPHERTEXT] {finalmsg}")
+                print(f"[ENCRYPTED DES MESSAGE] {encrypted_text}")
+                # padded_text = pad(text1)
+                # encrypted_text = des.encrypt(padded_text)
+                # print(f"[ENCRYPTING MESSAGE] {'Hello Client'}")
+                # print(f"[ENCRYPTED MESSAGE] {encrypted_text}")
 
                 conn.send(encrypted_text)
                 print("MESSAGE SENT\n")
@@ -86,6 +133,7 @@ def start():
     server.listen()
     print(f"[LISTENING] Server is listening on {SERVER}")
     print("The shared DES Key is: " + DES_key)
+    print("The shared HMAC Key is: " + HMAC_key)
     while True:
         conn, addr = server.accept()
         handle_client(conn, addr)
