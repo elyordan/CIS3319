@@ -1,5 +1,13 @@
 from Crypto.Cipher import DES
+from Crypto.Hash.MD5 import MD5Hash
 import socket
+import hashlib
+import hmac
+import base64
+
+
+
+
 
 #header is the maximum bit number for the message
 HEADER = 64
@@ -30,13 +38,18 @@ def pad(text):
     return text + (b' ' * toAdd)
 
 # Function that removes the shared DES Key from the file, and returns it as a string
-def getDESKeyFromFile(filename):
-    DES_key = None
-    with open(filename, "r") as key_file:
-        DES_key = key_file.readline().strip("\r\n")
+def getKeyFromFile(filename):
+    keyFromFile = None
 
-    print("The shared DES Key is: " + DES_key)
-    return DES_key
+    with open(filename, "r") as key_file:
+        keyFromFile = key_file.readline().strip("\r\n")
+        
+        if(filename =='key.txt'):
+            print("The shared DES Key is: " + keyFromFile)
+        else:
+            print("The shared HMAC Key is: " + keyFromFile)
+
+    return keyFromFile
 
 #func to encrypt message before sending to server
 
@@ -59,19 +72,29 @@ def send(msg):
     print(f"[UNENCRYPTED MESSAGE FROM SERVER] {des.decrypt(serverMsg)}")
 
 
-key = bytes(getDESKeyFromFile('key.txt'), 'utf-8')
+key = bytes(getKeyFromFile('key.txt'), 'utf-8')
+hmackey = bytes(getKeyFromFile('hmackey.txt'), 'utf-8')
 userInput = input()
 text1 = bytes(userInput, 'utf-8')
 
 des = DES.new(key, DES.MODE_ECB)
 
-padded_text = pad(text1)
-encrypted_text = des.encrypt(padded_text)
+#encrypt the message using hmac first
+sign_signature = hmac.new(text1, hmackey, hashlib.md5).hexdigest()
+hashmac = hmac.new(hmackey,digestmod=MD5Hash).hexdigest()
+finalmsg = hashmac + '' + sign_signature
+
+
+#padded_text = pad(my_hmac)
+encrypted_text = des.encrypt(finalmsg)
 
 print("\n")
 
-print(f"[ENCRYPTING MESSAGE] {userInput}")
-print(f"[ENCRYPTED MESSAGE] {encrypted_text}")
+print(f"[MESSAGE] {userInput}")
+print(f"[MESSAGE HMAC] {sign_signature}")
+print(f"[HMAC KEY] {hashmac}")
+print(f"[CIPHERTEXT] {finalmsg}")
+print(f"[ENCRYPTING CIPHERTEXT USING DES] {encrypted_text}")
 
 print("MESSAGE SENT\n")
 
